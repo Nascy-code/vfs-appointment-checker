@@ -1,0 +1,58 @@
+import requests
+from bs4 import BeautifulSoup
+import smtplib
+import ssl
+from email.message import EmailMessage
+import time
+import os
+
+# CONFIGURATIONS
+VFS_URL = "https://visa.vfsglobal.com/ind/en/prt/book-an-appointment"
+GMAIL_ADDRESS = os.environ.get("GMAIL_ADDRESS", "ljnascy@gmail.com")
+GMAIL_APP_PASSWORD = os.environ.get("GMAIL_APP_PASSWORD", "yourapppassword")
+TO_EMAIL = os.environ.get("TO_EMAIL", "ljnascy@gmail.com")
+
+HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+}
+
+def check_appointment():
+    try:
+        response = requests.get(VFS_URL, headers=HEADERS, timeout=15)
+        response.raise_for_status()
+        soup = BeautifulSoup(response.text, "html.parser")
+        # Update this selector as needed after inspecting the VFS page
+        if "No appointment slots available" not in soup.text:
+            print("Appointment slot found!")
+            return True
+        print("No appointment slots available.")
+        return False
+    except Exception as e:
+        print(f"Error checking appointments: {e}")
+        return False
+
+def send_email():
+    subject = "Portugal VFS Appointment Available!"
+    body = f"Check the VFS Global site now: {VFS_URL}"
+    msg = EmailMessage()
+    msg["Subject"] = subject
+    msg["From"] = GMAIL_ADDRESS
+    msg["To"] = TO_EMAIL
+    msg.set_content(body)
+
+    context = ssl.create_default_context()
+    try:
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=context) as server:
+            server.login(GMAIL_ADDRESS, GMAIL_APP_PASSWORD)
+            server.send_message(msg)
+        print("Email sent!")
+    except Exception as e:
+        print(f"Error sending email: {e}")
+
+if __name__ == "__main__":
+    while True:
+        if check_appointment():
+            send_email()
+            break
+        print("No appointments yet. Retrying in 15 minutes...")
+        time.sleep(900)  # 15 minutes
